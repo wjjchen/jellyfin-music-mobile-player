@@ -12,3 +12,6 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
+
+# expo-file-system legacy module
+-keep class expo.modules.filesystem.legacy.** { *; }

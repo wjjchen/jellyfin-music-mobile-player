@@ -8,6 +8,7 @@
     "backgroundColor": "#1a1a2e",
     "scheme": "jellyfin-player",
     "newArchEnabled": false,
+    "icon": "./assets/icon.png",
     "splash": {
       "backgroundColor": "#1a1a2e"
     },
@@ -15,18 +16,25 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.jellyfin.player",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
-      "package": "com.jellyfin.player"
+      "package": "com.jellyfin.player",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1a1a2e"
+      }
     },
     "web": {
       "bundler": "metro"
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-asset"
     ]
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import SafeImage from '@/components/SafeImage';
@@ -15,6 +15,7 @@ export default function ArtistsPage() {
   const [artists, setArtists] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
@@ -33,6 +34,19 @@ export default function ArtistsPage() {
     } catch (e) { console.error(e); }
     finally { setLoadingMore(false); }
   }, [artists.length, loadingMore, hasMore]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setHasMore(true);
+    try {
+      const result = await jellyfinApi.getArtists({ startIndex: 0, limit: PAGE_SIZE, sortBy: 'SortName' });
+      const items = result.Items || [];
+      setArtists(items);
+      setTotalCount(result.TotalRecordCount);
+      if (items.length < PAGE_SIZE) setHasMore(false);
+    } catch (e) { console.error(e); }
+    finally { setRefreshing(false); }
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -61,6 +75,7 @@ export default function ArtistsPage() {
         keyExtractor={(item) => item.Id}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         style={{ backgroundColor: '#1a1a2e' }}
         contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         ListHeaderComponent={<Text style={styles.title}>歌手列表 ({artists.length}{totalCount > artists.length ? ` / ${totalCount}` : ''})</Text>}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import BackButton from '@/components/BackButton';
 import { jellyfinApi } from '@/api/jellyfin';
@@ -13,6 +13,7 @@ import { colors } from '@/utils/theme';
 export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; name: string } | null>(null);
   const { width } = useWindowDimensions();
   const cardWidth = (width - 48) / 2;
@@ -48,6 +49,7 @@ export default function PlaylistsPage() {
         data={playlists}
         keyExtractor={(item) => item.Id}
         numColumns={2}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadPlaylists(); setRefreshing(false); }} tintColor={colors.accent} />}
         style={{ backgroundColor: '#1a1a2e' }}
         contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         columnWrapperStyle={{ gap: 16, marginBottom: 20 }}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import BackButton from '@/components/BackButton';
 import { jellyfinApi } from '@/api/jellyfin';
@@ -13,22 +13,21 @@ import { colors } from '@/utils/theme';
 export default function FavoritesPage() {
   const [songs, setSongs] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { setQueue } = usePlayerStore();
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const result = await jellyfinApi.getItems({
-          includeItemTypes: 'Audio', isFavorite: true, sortBy: 'DateCreated',
-          sortOrder: 'Descending', limit: 200, recursive: true,
-          fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams',
-        });
-        setSongs(result.Items || []);
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    }
-    load();
-  }, []);
+  const load = async () => {
+    try {
+      const result = await jellyfinApi.getItems({
+        includeItemTypes: 'Audio', isFavorite: true, sortBy: 'DateCreated',
+        sortOrder: 'Descending', limit: 200, recursive: true,
+        fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams',
+      });
+      setSongs(result.Items || []);
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => { (async () => { await load(); setLoading(false); })(); }, []);
 
   if (loading) return <View style={styles.loading}><Text style={{color:colors.textMuted}}>加载中...</Text></View>;
 
@@ -37,6 +36,7 @@ export default function FavoritesPage() {
     <FlatList
       data={songs}
       keyExtractor={(item) => item.Id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.accent} />}
       style={{ backgroundColor: '#1a1a2e' }}
       contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         ListHeaderComponent={

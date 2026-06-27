@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import Svg, { Path } from 'react-native-svg';
@@ -11,18 +11,17 @@ import { colors } from '@/utils/theme';
 export default function GenresPage() {
   const [genres, setGenres] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const result = await jellyfinApi.getGenres();
-        setGenres(result.Items || []);
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    }
-    load();
-  }, []);
+  const load = async () => {
+    try {
+      const result = await jellyfinApi.getGenres();
+      setGenres(result.Items || []);
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => { (async () => { await load(); setLoading(false); })(); }, []);
 
   if (loading) return <View style={styles.loading}><Text style={{color:colors.textMuted}}>加载中...</Text></View>;
 
@@ -32,6 +31,7 @@ export default function GenresPage() {
         data={genres}
         keyExtractor={(item) => item.Id}
         numColumns={2}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.accent} />}
         style={{ backgroundColor: '#1a1a2e' }}
         contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         columnWrapperStyle={{ gap: 12, marginBottom: 12 }}

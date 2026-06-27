@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import SafeImage from '@/components/SafeImage';
@@ -15,6 +15,7 @@ export default function AlbumsPage() {
   const [albums, setAlbums] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
@@ -39,6 +40,23 @@ export default function AlbumsPage() {
     } catch (e) { console.error(e); }
     finally { setLoadingMore(false); }
   }, [albums.length, loadingMore, hasMore]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setHasMore(true);
+    try {
+      const result = await jellyfinApi.getItems({
+        includeItemTypes: 'MusicAlbum', sortBy: 'DateCreated', sortOrder: 'Descending',
+        startIndex: 0, limit: PAGE_SIZE, recursive: true,
+        fields: 'PrimaryImageAspectRatio,SortName,DateCreated',
+      });
+      const items = result.Items || [];
+      setAlbums(items);
+      setTotalCount(result.TotalRecordCount);
+      if (items.length < PAGE_SIZE) setHasMore(false);
+    } catch (e) { console.error(e); }
+    finally { setRefreshing(false); }
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -74,6 +92,7 @@ export default function AlbumsPage() {
         numColumns={2}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         style={{ backgroundColor: '#1a1a2e' }}
         contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         columnWrapperStyle={{ gap: 16, marginBottom: 20 }}

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import Svg, { Path } from 'react-native-svg';
@@ -14,6 +14,7 @@ export default function SongsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const { setQueue } = usePlayerStore();
 
@@ -38,6 +39,26 @@ export default function SongsPage() {
       setLoadingMore(false);
     }
   }, [songs.length, loadingMore, hasMore]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setHasMore(true);
+    try {
+      const result = await jellyfinApi.getItems({
+        includeItemTypes: 'Audio', sortBy: 'SortName', sortOrder: 'Ascending',
+        startIndex: 0, limit: PAGE_SIZE, recursive: true,
+        fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams',
+      });
+      const items = result.Items || [];
+      setSongs(items);
+      setTotalCount(result.TotalRecordCount);
+      if (items.length < PAGE_SIZE) setHasMore(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -70,6 +91,7 @@ export default function SongsPage() {
       keyExtractor={(item) => item.Id}
       onEndReached={loadMore}
       onEndReachedThreshold={0.5}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       style={{ backgroundColor: '#1a1a2e' }}
       contentContainerStyle={styles.container}
       ListHeaderComponent={

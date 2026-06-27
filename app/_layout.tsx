@@ -10,21 +10,19 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    async function init() {
-      await jellyfinApi.init();
-      setReady(true);
-    }
-    init();
+    jellyfinApi.init().then(() => setReady(true));
   }, []);
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const root = document.getElementById('root');
-      if (root) {
-        root.style.backgroundColor = '#1a1a2e';
-        root.style.minHeight = '100vh';
-        root.style.color = '#ffffff';
-      }
+      try {
+        const root = document.getElementById('root');
+        if (root) {
+          root.style.backgroundColor = '#1a1a2e';
+          root.style.minHeight = '100vh';
+          root.style.color = '#ffffff';
+        }
+      } catch {}
     }
   }, []);
 
@@ -43,12 +41,7 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: '#1a1a2e' }}>
       <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'fade',
-        }}
-      >
+      <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

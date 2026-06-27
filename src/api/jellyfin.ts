@@ -77,6 +77,7 @@ class JellyfinApi {
         this.userId = '';
         await AsyncStorage.multiRemove(['jellyfin_token', 'jellyfin_userId']);
         onAuthFailure?.();
+        return undefined as T;
       }
       const text = await res.text().catch(() => '');
       throw new Error(`API Error ${res.status}: ${text}`);

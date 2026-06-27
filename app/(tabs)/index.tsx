@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions, TextInput } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions, TextInput, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
@@ -15,12 +15,35 @@ export default function HomePage() {
   const [dailyPicks, setDailyPicks] = useState<BaseItemDto[]>([]);
   const [playlists, setPlaylists] = useState<BaseItemDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const { playItem, setQueue, openAlbumDetail, openArtistDetail, openPlaylistDetail } = usePlayerStore();
   const { width } = useWindowDimensions();
   const albumSize = Math.min((width - 64) / 3, 160);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [latest, recent, most, random, pl] = await Promise.all([
+        jellyfinApi.getLatestAlbums(10),
+        jellyfinApi.getRecentlyPlayed(12),
+        jellyfinApi.getItems({ includeItemTypes: 'Audio', sortBy: 'PlayCount', sortOrder: 'Descending', limit: 12, recursive: true, filters: 'IsPlayed' }),
+        jellyfinApi.getItems({ includeItemTypes: 'Audio', sortBy: 'Random', limit: 12, recursive: true }),
+        jellyfinApi.getPlaylists(),
+      ]);
+      setLatestAlbums(latest);
+      setRecentlyPlayed(recent);
+      setMostPlayed(most.Items || []);
+      setDailyPicks(random.Items || []);
+      setPlaylists(pl.Items || []);
+    } catch (e) {
+      console.error('Refresh failed:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -105,6 +128,7 @@ export default function HomePage() {
         style={{ backgroundColor: '#1a1a2e' }}
         data={[]}
         renderItem={null}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         contentContainerStyle={styles.scroll}
         ListHeaderComponent={
           <View>

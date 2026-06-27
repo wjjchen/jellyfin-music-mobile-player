@@ -1,9 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { View, Text, FlatList, ScrollView, Pressable, StyleSheet, Alert, useWindowDimensions, NativeScrollEvent, NativeSyntheticEvent, Platform } from 'react-native';
 import { router, Stack } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, cancelAnimation } from 'react-native-reanimated';
 import { usePlayerStore } from '@/store/playerStore';
 import { jellyfinApi } from '@/api/jellyfin';
@@ -12,6 +10,7 @@ import PlaylistPanel from '@/components/PlaylistPanel';
 import Svg, { Polyline, Path, Line } from 'react-native-svg';
 import type { BaseItemDto } from '@/types/jellyfin';
 import { colors } from '@/utils/theme';
+import { downloadTrack } from '@/services/downloadService';
 
 function formatPlayerTime(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00';
@@ -31,7 +30,7 @@ export default function FullPlayerPage() {
 
   const insets = useSafeAreaInsets();
   const pagerRef = useRef<ScrollView>(null);
-  const lyricsRef = useRef<FlatList>(null);
+  const lyricsRef = useRef<ScrollView>(null);
   const barRef = useRef<View>(null);
   const barWidthRef = useRef(0);
   const [activeTab, setActiveTab] = useState(0);
@@ -57,11 +56,20 @@ export default function FullPlayerPage() {
     }
   }, [isPlaying]);
 
+  const LYRIC_LINE_HEIGHT = 48;
   useEffect(() => {
-    if (lyricsRef.current && currentLyricIndex >= 0) {
-      lyricsRef.current.scrollToIndex({ index: currentLyricIndex, animated: true, viewPosition: 0.5 });
+    if (currentLyricIndex >= 0) {
+      const targetY = Math.max(0, currentLyricIndex * LYRIC_LINE_HEIGHT - 120);
+      lyricsRef.current?.scrollTo({ y: targetY, animated: true });
     }
   }, [currentLyricIndex]);
+
+  useEffect(() => {
+    if (activeTab === 1 && currentLyricIndex >= 0) {
+      const targetY = Math.max(0, currentLyricIndex * LYRIC_LINE_HEIGHT - 120);
+      lyricsRef.current?.scrollTo({ y: targetY, animated: false });
+    }
+  }, [activeTab]);
 
   const item = currentIndex >= 0 && currentIndex < queue.length ? queue[currentIndex] : null;
 
@@ -168,47 +176,21 @@ export default function FullPlayerPage() {
               </Svg>
             </Pressable>
             <Pressable style={styles.actionBtn} onPress={async () => {
-              try {
-                const url = jellyfinApi.getAudioStreamUrl(item.Id, item.Container, item.MediaSources?.[0]?.Id);
-                const ext = item.Container || 'mp3';
-                const fileName = `${item.Name || 'audio'}.${ext}`.replace(/[\\/:*?"<>|]/g, '_');
-                if (Platform.OS === 'web') {
+              if (Platform.OS === 'web' && typeof document !== 'undefined') {
+                try {
+                  const url = jellyfinApi.getAudioStreamUrl(item.Id, item.Container, item.MediaSources?.[0]?.Id);
+                  const fileName = `${item.Name || 'audio'}.${item.Container || 'mp3'}`.replace(/[\\/:*?"<>|]/g, '_');
                   const resp = await fetch(url);
                   const blob = await resp.blob();
-                  const blobUrl = URL.createObjectURL(blob);
                   const a = document.createElement('a');
-                  a.href = blobUrl;
+                  a.href = URL.createObjectURL(blob);
                   a.download = fileName;
-                  document.body.appendChild(a);
-                  a.click();
+                  document.body.appendChild(a); a.click();
                   document.body.removeChild(a);
-                  setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                } else if (Platform.OS === 'android') {
-                  // 先请求用户选择保存目录（首次选择后永久有效）
-                  let downloadDir = await AsyncStorage.getItem('download_dir');
-                  let dirUri = downloadDir || null;
-                  if (!dirUri) {
-                    const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-                    if (!perm.granted) { Alert.alert('取消', '未选择保存位置'); return; }
-                    dirUri = perm.directoryUri;
-                    await AsyncStorage.setItem('download_dir', dirUri);
-                  }
-                  // 下载到缓存后复制到目标目录
-                  const tmpDir = FileSystem.cacheDirectory + 'downloads/';
-                  await FileSystem.makeDirectoryAsync(tmpDir, { intermediates: true }).catch(() => {});
-                  const tmpFile = tmpDir + fileName;
-                  await FileSystem.downloadAsync(url, tmpFile);
-                  const base64 = await FileSystem.readAsStringAsync(tmpFile, { encoding: FileSystem.EncodingType.Base64 });
-                  const destUri = await FileSystem.StorageAccessFramework.createFileAsync(dirUri, fileName.replace(`.${ext}`, ''), `audio/${ext}`);
-                  await FileSystem.writeAsStringAsync(destUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-                  await FileSystem.deleteAsync(tmpFile);
-                } else {
-                  const dest = `${FileSystem.documentDirectory}${fileName}`;
-                  await FileSystem.downloadAsync(url, dest);
-                }
-                Alert.alert('下载完成', `文件 ${fileName} 已保存`);
-              } catch (e) {
-                Alert.alert('下载失败', (e as any)?.message || '请重试');
+                  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+                } catch (e) { Alert.alert('下载失败', (e as any)?.message || '请重试'); }
+              } else {
+                await downloadTrack(item.Id, item.Name || 'audio', item.Container, item.MediaSources?.[0]?.Id);
               }
             }}>
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2}>
@@ -231,18 +213,16 @@ export default function FullPlayerPage() {
         </View>
 
         {/* Page 1: Lyrics */}
-        <View style={[styles.lyricsPage, { width, height: pagerHeight || undefined }]} key="lyrics">
+        <View style={[styles.lyricsPage, { width, height: pagerHeight || 300 }]} key="lyrics">
           {lyrics.length > 0 ? (
-            <FlatList
+            <ScrollView
               ref={lyricsRef}
-              data={lyrics}
-              keyExtractor={(_, i) => String(i)}
               style={styles.lyricsList}
               contentContainerStyle={styles.lyricsContent}
               showsVerticalScrollIndicator={false}
-              onScrollToIndexFailed={() => {}}
-              renderItem={({ item, index }) => (
-                <Text
+            >
+              {lyrics.map((item, index) => (
+                <Text key={index}
                   style={[
                     styles.lyricLine,
                     index === currentLyricIndex && styles.lyricLineActive,
@@ -251,8 +231,8 @@ export default function FullPlayerPage() {
                 >
                   {item.Text || '...'}
                 </Text>
-              )}
-            />
+              ))}
+            </ScrollView>
           ) : (
             <View style={styles.lyricsEmpty}>
               <Text style={{ color: colors.textMuted, fontSize: 15 }}>暂无歌词</Text>

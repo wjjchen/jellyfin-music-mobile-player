@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image } from 'expo-image';
+import { Image } from 'react-native';
 import DefaultImage from './DefaultImage';
 
 interface SafeImageProps {
@@ -16,24 +16,14 @@ export default function SafeImage({ src, type, size = 200, style }: SafeImagePro
     return <DefaultImage type={type} size={size} />;
   }
 
-  const borderRadius =
-    type === 'artist' || type === 'song' ? size / 2 : 8;
+  const borderRadius = type === 'artist' || type === 'song' ? size / 2 : 8;
 
   return (
     <Image
       source={{ uri: src }}
-      style={[
-        {
-          width: size,
-          height: size,
-          borderRadius,
-          flexShrink: 0,
-        },
-        style,
-      ]}
-      contentFit="cover"
+      style={[{ width: size, height: size, borderRadius, flexShrink: 0 }, style]}
+      resizeMode="cover"
       onError={() => setFailed(true)}
-      transition={200}
     />
   );
 }
