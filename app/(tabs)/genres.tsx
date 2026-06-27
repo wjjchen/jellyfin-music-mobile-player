@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl, BackHandler } from 'react-native';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import Svg, { Path } from 'react-native-svg';
@@ -22,6 +22,16 @@ export default function GenresPage() {
   };
 
   useEffect(() => { (async () => { await load(); setLoading(false); })(); }, []);
+
+  useEffect(() => {
+    if (selectedGenre) {
+      const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+        setSelectedGenre(null);
+        return true;
+      });
+      return () => handler.remove();
+    }
+  }, [selectedGenre]);
 
   if (loading) return <View style={styles.loading}><Text style={{color:colors.textMuted}}>加载中...</Text></View>;
 

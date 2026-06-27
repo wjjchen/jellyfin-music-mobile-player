@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions, RefreshControl, BackHandler } from 'react-native';
 import { router } from 'expo-router';
 import BackButton from '@/components/BackButton';
 import { jellyfinApi } from '@/api/jellyfin';
@@ -37,6 +37,16 @@ export default function PlaylistsPage() {
       clearPendingDetail();
     }
   }, [pendingPlaylistId, playlists]);
+
+  useEffect(() => {
+    if (selectedPlaylist) {
+      const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+      return () => handler.remove();
+    }
+  }, [selectedPlaylist]);
 
   const handleBack = () => { setSelectedPlaylist(null); loadPlaylists(); };
 

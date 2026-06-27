@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl, BackHandler } from 'react-native';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import SafeImage from '@/components/SafeImage';
@@ -65,6 +65,16 @@ export default function ArtistsPage() {
   useEffect(() => {
     if (pendingArtistId) { setSelectedArtistId(pendingArtistId); clearPendingDetail(); }
   }, [pendingArtistId]);
+
+  useEffect(() => {
+    if (selectedArtistId) {
+      const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+        setSelectedArtistId(null);
+        return true;
+      });
+      return () => handler.remove();
+    }
+  }, [selectedArtistId]);
 
   if (loading) return <View style={styles.loading}><Text style={{color:colors.textMuted}}>加载中...</Text></View>;
 

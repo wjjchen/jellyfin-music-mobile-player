@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions, ActivityIndicator, RefreshControl, BackHandler } from 'react-native';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import SafeImage from '@/components/SafeImage';
@@ -79,6 +79,16 @@ export default function AlbumsPage() {
   useEffect(() => {
     if (pendingAlbumId) { setSelectedAlbumId(pendingAlbumId); clearPendingDetail(); }
   }, [pendingAlbumId]);
+
+  useEffect(() => {
+    if (selectedAlbumId) {
+      const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+        setSelectedAlbumId(null);
+        return true;
+      });
+      return () => handler.remove();
+    }
+  }, [selectedAlbumId]);
 
   if (loading) {
     return <View style={styles.loading}><Text style={{color:colors.textMuted}}>加载中...</Text></View>;
