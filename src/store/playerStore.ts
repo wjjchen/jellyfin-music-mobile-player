@@ -3,7 +3,32 @@ import { Alert, Platform } from 'react-native';
 import type { BaseItemDto, LyricLine } from '@/types/jellyfin';
 import { jellyfinApi } from '@/api/jellyfin';
 import { getExpoAudio, playWeb, seekWeb, stopWeb, startWebPoll, getWeb } from '@/utils/trackPlayer';
-import { startForegroundService, stopForegroundService } from '@/services/foregroundService';
+import { startForegroundService, stopForegroundService, updatePlaybackState, onLockScreenEvent } from '@/services/foregroundService';
+
+let audioSessionConfigured = false;
+let lockScreenSubscribed = false;
+
+async function configureAudioSession() {
+  if (audioSessionConfigured) return;
+  audioSessionConfigured = true;
+  if (Platform.OS !== 'android') return;
+  try {
+    const ExpoAudio = await getExpoAudio();
+    if (ExpoAudio?.setAudioModeAsync) {
+      console.log('[AudioSession] configuring with playsInSilentMode=true, shouldPlayInBackground=true');
+      await ExpoAudio.setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
+      });
+      console.log('[AudioSession] configured successfully');
+    } else {
+      console.warn('[AudioSession] setAudioModeAsync not found');
+    }
+  } catch (e: any) {
+    console.warn('[AudioSession] configure failed:', e?.message || e);
+  }
+}
 
 export interface PlayerState {
   queue: BaseItemDto[];
@@ -56,10 +81,10 @@ function getLyrics(itemId: string) {
 
 function updateLyricIndex(timeSec: number, lyrics: LyricLine[]): number {
   if (!lyrics || lyrics.length === 0) return -1;
-  const timeMs = timeSec * 1000;
+  const timeTicks = timeSec * 10_000_000;
   let idx = -1;
   for (let i = 0; i < lyrics.length; i++) {
-    if (timeMs >= (lyrics[i].Start || 0)) idx = i;
+    if (timeTicks >= (lyrics[i].Start || 0)) idx = i;
     else break;
   }
   return idx;
@@ -91,17 +116,14 @@ async function playNative(url: string, meta?: { title?: string; artist?: string;
   const Audio = await getExpoAudio();
   if (!Audio?.AudioPlayer) throw new Error('expo-audio 不可用');
   const source = { uri: url };
-  if (!audioPlayer) audioPlayer = new Audio.AudioPlayer(source, 250, true, 0);
-  else audioPlayer.replace(source);
-  audioPlayer.play();
-  if (audioPlayer.setActiveForLockScreenControls) {
-    audioPlayer.setActiveForLockScreenControls(true, {
-      title: meta?.title || '未知',
-      artist: meta?.artist || '未知艺术家',
-      album: meta?.album || '',
-      artwork: meta?.artwork || undefined,
-    });
+  if (!audioPlayer) {
+    audioPlayer = new Audio.AudioPlayer(source, 250, true, 0);
+    console.log('[AudioPlayer] created new instance');
+  } else {
+    console.log('[AudioPlayer] replacing source');
+    audioPlayer.replace(source);
   }
+  audioPlayer.play();
 }
 
 async function pauseNative() {
@@ -145,6 +167,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         });
       } else {
         const artwork = jellyfinApi.getImageUrl(item.Id, 'Primary', 400, 400);
+        await configureAudioSession();
         await playNative(url, { title: item.Name || undefined, artist: item.Artists?.join(', ') || item.AlbumArtist || undefined, album: item.Album || undefined, artwork });
         startProgressPolling();
       }
@@ -152,6 +175,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const name = item.Name || '未知';
       const artist = item.Artists?.join(', ') || item.AlbumArtist || '未知艺术家';
       startForegroundService(name, artist);
+      updatePlaybackState(true);
       set({ queue: newQueue, currentIndex: idx >= 0 ? idx : 0, isPlaying: true, currentTime: 0, duration: 0, lyrics: [], currentLyricIndex: -1, isFavorite: item.UserData?.IsFavorite ?? false });
       getLyrics(item.Id);
     } catch (e: any) {
@@ -166,13 +190,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (Platform.OS === 'web') {
       const a = getWeb(); if (!a) return; if (a.paused) { a.play(); set({ isPlaying: true }); } else { a.pause(); set({ isPlaying: false }); } return;
     }
-    if (get().isPlaying) { await pauseNative(); set({ isPlaying: false }); stopForegroundService(); }
-    else { await resumeNative(); set({ isPlaying: true }); const s = get(); const i = s.queue[s.currentIndex]; if (i) startForegroundService(i.Name || '未知', i.Artists?.join(', ') || i.AlbumArtist || '未知艺术家'); }
+    if (get().isPlaying) { await pauseNative(); set({ isPlaying: false }); updatePlaybackState(false); }
+    else { await resumeNative(); set({ isPlaying: true }); const s = get(); const i = s.queue[s.currentIndex]; if (i) { startForegroundService(i.Name || '未知', i.Artists?.join(', ') || i.AlbumArtist || '未知艺术家'); updatePlaybackState(true); } }
   },
 
   next: async () => {
     const { queue, currentIndex } = get();
-    if (currentIndex + 1 >= queue.length) { set({ isPlaying: false }); stopForegroundService(); return; }
+    if (currentIndex + 1 >= queue.length) { set({ isPlaying: false }); stopForegroundService(); updatePlaybackState(false); return; }
     await get().playItem(queue[currentIndex + 1], queue);
   },
 
@@ -220,6 +244,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   shuffleQueue: () => set((s) => ({ queue: [...s.queue].sort(() => Math.random() - 0.5) })),
   setBackHandler: (h) => set({ backHandler: h }),
   openAlbumDetail: (id) => set({ pendingAlbumId: id }), openArtistDetail: (id) => set({ pendingArtistId: id }),
-  openPlaylistDetail: (id) => set({ pendingPlaylistId: id }),
-  clearPendingDetail: () => set({ pendingAlbumId: null, pendingArtistId: null, pendingPlaylistId: null }),
-}));
+   openPlaylistDetail: (id) => set({ pendingPlaylistId: id }),
+   clearPendingDetail: () => set({ pendingAlbumId: null, pendingArtistId: null, pendingPlaylistId: null }),
+ }));
+
+function handleLockScreenEvent(event: string) {
+  const state = usePlayerStore.getState();
+  if (event === 'TOGGLE') {
+    state.togglePlay();
+  } else if (event === 'NEXT') {
+    state.next();
+  } else if (event === 'PREV') {
+    state.previous();
+  }
+}
+
+export function initLockScreenHandler() {
+  if (Platform.OS !== 'android' || lockScreenSubscribed) return;
+  lockScreenSubscribed = true;
+  try {
+    onLockScreenEvent(handleLockScreenEvent);
+  } catch (e) {
+    console.warn('[LockScreen] init failed:', e);
+  }
+}

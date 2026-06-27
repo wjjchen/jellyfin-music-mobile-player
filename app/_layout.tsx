@@ -3,6 +3,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { jellyfinApi, setOnAuthFailure } from '@/api/jellyfin';
+import { initLockScreenHandler } from '@/store/playerStore';
 import NowPlayingBar from '@/components/NowPlayingBar';
 import PlaylistPanel from '@/components/PlaylistPanel';
 
@@ -11,6 +12,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     jellyfinApi.init().then(() => setReady(true));
+    initLockScreenHandler();
   }, []);
 
   useEffect(() => {

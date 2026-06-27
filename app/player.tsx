@@ -30,7 +30,6 @@ export default function FullPlayerPage() {
 
   const insets = useSafeAreaInsets();
   const pagerRef = useRef<ScrollView>(null);
-  const lyricsRef = useRef<ScrollView>(null);
   const barRef = useRef<View>(null);
   const barWidthRef = useRef(0);
   const [activeTab, setActiveTab] = useState(0);
@@ -57,19 +56,17 @@ export default function FullPlayerPage() {
   }, [isPlaying]);
 
   const LYRIC_LINE_HEIGHT = 48;
+  const lyricsOffsetY = useSharedValue(0);
+  const lyricsAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: lyricsOffsetY.value }],
+  }));
+
   useEffect(() => {
     if (currentLyricIndex >= 0) {
       const targetY = Math.max(0, currentLyricIndex * LYRIC_LINE_HEIGHT - 120);
-      lyricsRef.current?.scrollTo({ y: targetY, animated: true });
+      lyricsOffsetY.value = withTiming(-targetY, { duration: 300, easing: Easing.linear });
     }
   }, [currentLyricIndex]);
-
-  useEffect(() => {
-    if (activeTab === 1 && currentLyricIndex >= 0) {
-      const targetY = Math.max(0, currentLyricIndex * LYRIC_LINE_HEIGHT - 120);
-      lyricsRef.current?.scrollTo({ y: targetY, animated: false });
-    }
-  }, [activeTab]);
 
   const item = currentIndex >= 0 && currentIndex < queue.length ? queue[currentIndex] : null;
 
@@ -213,26 +210,23 @@ export default function FullPlayerPage() {
         </View>
 
         {/* Page 1: Lyrics */}
-        <View style={[styles.lyricsPage, { width, height: pagerHeight || 300 }]} key="lyrics">
+        <View style={[styles.lyricsPage, { width, height: pagerHeight || 300 }]} key="lyrics-transform">
           {lyrics.length > 0 ? (
-            <ScrollView
-              ref={lyricsRef}
-              style={styles.lyricsList}
-              contentContainerStyle={styles.lyricsContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {lyrics.map((item, index) => (
-                <Text key={index}
-                  style={[
-                    styles.lyricLine,
-                    index === currentLyricIndex && styles.lyricLineActive,
-                    index < currentLyricIndex && styles.lyricLinePast,
-                  ]}
-                >
-                  {item.Text || '...'}
-                </Text>
-              ))}
-            </ScrollView>
+            <View style={styles.lyricsScrollContainer}>
+              <Animated.View style={[styles.lyricsContentWrapper, lyricsAnimatedStyle]}>
+                {lyrics.map((item, index) => (
+                  <Text key={index}
+                    style={[
+                      styles.lyricLine,
+                      index === currentLyricIndex && styles.lyricLineActive,
+                      index < currentLyricIndex && styles.lyricLinePast,
+                    ]}
+                  >
+                    {item.Text || '...'}
+                  </Text>
+                ))}
+              </Animated.View>
+            </View>
           ) : (
             <View style={styles.lyricsEmpty}>
               <Text style={{ color: colors.textMuted, fontSize: 15 }}>暂无歌词</Text>
@@ -397,7 +391,10 @@ const styles = StyleSheet.create({
 
   pager: { flex: 1 },
   page: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, gap: 32 },
-  lyricsPage: { alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16 },
+  lyricsPage: { alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16, overflow: 'hidden' },
+
+  lyricsScrollContainer: { flex: 1, width: '100%', overflow: 'hidden' },
+  lyricsContentWrapper: { alignItems: 'center', paddingTop: 124, paddingBottom: 190 },
 
   vinylWrap: { alignItems: 'center', justifyContent: 'center' },
   vinyl: { borderRadius: 999, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
@@ -408,8 +405,8 @@ const styles = StyleSheet.create({
 
   lyricsList: { flex: 1, width: '100%' },
   lyricsContent: { alignItems: 'center', gap: 14, paddingTop: 124, paddingBottom: 190 },
-  lyricLine: { fontSize: 15, color: colors.textMuted, textAlign: 'center', lineHeight: 22 },
-  lyricLineActive: { fontSize: 20, fontWeight: '600', color: '#fff', lineHeight: 28 },
+  lyricLine: { fontSize: 15, color: colors.textMuted, textAlign: 'center', lineHeight: 48 },
+  lyricLineActive: { fontSize: 20, fontWeight: '600', color: '#fff', lineHeight: 48 },
   lyricLinePast: { color: 'rgba(255,255,255,0.25)' },
   lyricsEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
