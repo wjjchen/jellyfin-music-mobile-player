@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl, BackHandler } from 'react-native';
+import { router } from 'expo-router';
 import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import SafeImage from '@/components/SafeImage';
@@ -96,7 +97,7 @@ export default function ArtistsPage() {
             <SafeImage src={item.ImageTags?.Primary ? jellyfinApi.getImageUrl(item.Id, 'Primary', 60, 60, 90, item.ImageTags.Primary) : ''} type="artist" size={48} />
             <View style={styles.artistInfo}>
               <Text style={styles.artistName}>{item.Name}</Text>
-              <Text style={styles.artistCount}>{item.ChildCount || item.RecursiveItemCount || 0} 首歌曲</Text>
+              <Text style={styles.artistCount}>{item.SongCount || 0} 首歌曲</Text>
             </View>
           </Pressable>
         )}
@@ -112,7 +113,7 @@ function ArtistOverlay({ artistId, onBack }: { artistId: string; onBack: () => v
   const [songs, setSongs] = useState<BaseItemDto[]>([]);
   const [activeTab, setActiveTab] = useState<'albums' | 'songs'>('albums');
   const [loading, setLoading] = useState(true);
-  const { setQueue } = usePlayerStore();
+  const { setQueue, openAlbumDetail } = usePlayerStore();
 
   useEffect(() => {
     async function load() {
@@ -171,7 +172,7 @@ function ArtistOverlay({ artistId, onBack }: { artistId: string; onBack: () => v
           ListEmptyComponent={<Text style={styles.empty}>{activeTab === 'albums' ? '没有找到专辑' : '没有找到歌曲'}</Text>}
           renderItem={({ item, index }) =>
             activeTab === 'albums' ? (
-              <Pressable style={{ width: '48%' }}>
+              <Pressable style={{ width: '48%' }} onPress={() => { router.navigate('/(tabs)/albums'); openAlbumDetail(item.Id); }}>
                 <SafeImage src={jellyfinApi.getImageUrl(item.Id, 'Primary', 140, 140, 90, item.ImageTags?.Primary)} type="album" size={140} />
                 <Text style={styles.albumCardName} numberOfLines={1}>{item.Name}</Text>
                 <Text style={styles.albumCardYear}>{item.ProductionYear || ''}</Text>

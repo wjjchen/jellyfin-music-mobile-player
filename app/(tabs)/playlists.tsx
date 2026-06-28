@@ -70,7 +70,7 @@ export default function PlaylistsPage() {
             <SafeImage src={jellyfinApi.getImageUrl(item.Id, 'Primary', 200, 200, 90, item.ImageTags?.Primary)} type="album" size={cardWidth} />
             <View style={styles.cardInfo}>
               <Text style={styles.cardName} numberOfLines={1}>{item.Name}</Text>
-              <Text style={styles.cardCount}>{item.ChildCount || 0} 首歌曲</Text>
+              <Text style={styles.cardCount}>{item.SongCount || 0} 首歌曲</Text>
             </View>
           </Pressable>
         )}

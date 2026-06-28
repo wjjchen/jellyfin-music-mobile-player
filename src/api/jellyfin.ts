@@ -62,34 +62,51 @@ class JellyfinApi {
     return h;
   }
 
-  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(path: string, options: RequestInit = {}, timeoutMs = 30000): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        ...this.headers(),
-        ...(options.headers as Record<string, string>),
-      },
-    });
-    if (!res.ok) {
-      if (res.status === 401) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          ...this.headers(),
+          ...(options.headers as Record<string, string>),
+        },
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) {
+        if (res.status === 401) {
+          this.accessToken = '';
+          this.userId = '';
+          await AsyncStorage.multiRemove(['jellyfin_token', 'jellyfin_userId']);
+          onAuthFailure?.();
+          return undefined as T;
+        }
+        const text = await res.text().catch(() => '');
+        throw new Error(`API Error ${res.status}: ${text}`);
+      }
+      if (res.status === 204) {
+        return undefined as T;
+      }
+      const text = await res.text();
+      if (!text) {
+        return undefined as T;
+      }
+      return JSON.parse(text) as T;
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      if (e?.name === 'AbortError') {
+        console.warn(`[API Timeout] ${path} exceeded ${timeoutMs}ms, clearing session`);
         this.accessToken = '';
         this.userId = '';
         await AsyncStorage.multiRemove(['jellyfin_token', 'jellyfin_userId']);
         onAuthFailure?.();
         return undefined as T;
       }
-      const text = await res.text().catch(() => '');
-      throw new Error(`API Error ${res.status}: ${text}`);
+      throw e;
     }
-    if (res.status === 204) {
-      return undefined as T;
-    }
-    const text = await res.text();
-    if (!text) {
-      return undefined as T;
-    }
-    return JSON.parse(text) as T;
   }
 
   async login(username: string, password: string): Promise<AuthenticationResult> {
@@ -155,6 +172,7 @@ class JellyfinApi {
     isFavorite?: boolean;
     mediaTypes?: string;
     genreIds?: string;
+    artistIds?: string;
   }): Promise<BaseItemDtoQueryResult> {
     const q = new URLSearchParams();
     if (params.includeItemTypes) q.set('IncludeItemTypes', params.includeItemTypes);
@@ -170,6 +188,7 @@ class JellyfinApi {
     if (params.isFavorite !== undefined) q.set('IsFavorite', String(params.isFavorite));
     if (params.mediaTypes) q.set('MediaTypes', params.mediaTypes);
     if (params.genreIds) q.set('GenreIds', params.genreIds);
+    if (params.artistIds) q.set('ArtistIds', params.artistIds);
     q.set('EnableUserData', 'true');
     q.set('EnableImages', 'true');
     q.set('ImageTypeLimit', '1');
@@ -210,6 +229,7 @@ class JellyfinApi {
     q.set('EnableImages', 'true');
     q.set('ImageTypeLimit', '1');
     q.set('EnableTotalRecordCount', 'true');
+    q.set('IncludeItemTypes', 'Audio');
     return this.request<BaseItemDtoQueryResult>(`/Artists?${q.toString()}`);
   }
 
@@ -236,7 +256,7 @@ class JellyfinApi {
       includeItemTypes: 'MusicAlbum',
       sortBy: 'ProductionYear,SortName',
       sortOrder: 'Descending',
-      fields: 'PrimaryImageAspectRatio,SortName,DateCreated',
+      fields: 'PrimaryImageAspectRatio,SortName,DateCreated,AlbumCount',
       limit: 100,
       recursive: true,
     }).then((result): BaseItemDtoQueryResult => {
@@ -245,7 +265,7 @@ class JellyfinApi {
           item.AlbumArtists?.some((a: NameIdPair) => a.Id === artistId) ||
           item.ArtistItems?.some((a: NameIdPair) => a.Id === artistId)
       );
-      return { ...result, Items: filtered };
+      return { ...result, Items: filtered, TotalRecordCount: filtered.length };
     });
   }
 
@@ -254,7 +274,7 @@ class JellyfinApi {
       includeItemTypes: 'Audio',
       sortBy: 'ProductionYear,Album,SortName',
       sortOrder: 'Descending',
-      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams',
+      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams,SongCount',
       limit: 500,
       recursive: true,
     }).then((result): BaseItemDtoQueryResult => {
@@ -313,7 +333,7 @@ class JellyfinApi {
       parentId = `&ParentId=${this.musicLibraryId}`;
     }
     return this.request<BaseItemDtoQueryResult>(
-      `/Genres?SortBy=SortName&SortOrder=Ascending&Recursive=true&Fields=PrimaryImageAspectRatio,ItemCounts&StartIndex=0${parentId}&userId=${this.userId}`
+      `/Genres?SortBy=SortName&SortOrder=Ascending&Recursive=true&Fields=PrimaryImageAspectRatio,SortName,DateCreated,SongCount&IncludeItemTypes=Audio&StartIndex=0${parentId}&userId=${this.userId}`
     );
   }
 
@@ -324,7 +344,7 @@ class JellyfinApi {
       recursive: true,
       sortBy: 'SortName',
       sortOrder: 'Ascending',
-      fields: 'PrimaryImageAspectRatio,SortName,DateCreated,ChildCount',
+      fields: 'PrimaryImageAspectRatio,SortName,DateCreated,SongCount',
     });
   }
 

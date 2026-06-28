@@ -50,7 +50,7 @@ export default function GenresPage() {
         renderItem={({ item }) => (
           <Pressable style={styles.genreCard} onPress={() => setSelectedGenre({ id: item.Id, name: item.Name })}>
             <Text style={styles.genreName}>{item.Name}</Text>
-            <Text style={styles.genreCount}>{item.ChildCount || 0} 首歌曲</Text>
+            <Text style={styles.genreCount}>{item.SongCount || 0} 首歌曲</Text>
           </Pressable>
         )}
       />

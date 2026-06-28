@@ -319,7 +319,7 @@ export default function FullPlayerPage() {
                   catch { Alert.alert('错误', '添加到列表失败'); }
                 }}>
                   <Text style={styles.playlistItemName}>{pl.Name}</Text>
-                  <Text style={styles.playlistItemCount}>{pl.ChildCount || 0} 首</Text>
+                  <Text style={styles.playlistItemCount}>{pl.SongCount || 0} 首</Text>
                 </Pressable>
               )}
               ListEmptyComponent={<Text style={styles.modalEmpty}>服务器上没有播放列表</Text>}

@@ -163,7 +163,7 @@ export default function HomePage() {
                   </View>
                   <View style={styles.albumInfo}>
                     <Text style={styles.albumName} numberOfLines={1}>{item.Name}</Text>
-                    <Text style={styles.albumArtist}>{item.ChildCount || 0} 首歌曲</Text>
+                    <Text style={styles.albumArtist}>{item.SongCount || 0} 首歌曲</Text>
                   </View>
                 </Pressable>
               )}
