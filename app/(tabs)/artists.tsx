@@ -121,7 +121,7 @@ function ArtistOverlay({ artistId, onBack }: { artistId: string; onBack: () => v
         const artistData = await jellyfinApi.getItem(artistId);
         setArtist(artistData);
         const [albumsData, songsData] = await Promise.all([
-          jellyfinApi.getArtistAlbums(artistId), jellyfinApi.getArtistSongs(artistId, artistData.Name),
+          jellyfinApi.getArtistAlbums(artistId), jellyfinApi.getArtistSongs(artistId),
         ]);
         setAlbums(albumsData.Items || []);
         setSongs(songsData.Items || []);

@@ -259,17 +259,11 @@ class JellyfinApi {
       fields: 'PrimaryImageAspectRatio,SortName,DateCreated,AlbumCount',
       limit: 100,
       recursive: true,
-    }).then((result): BaseItemDtoQueryResult => {
-      const filtered = result.Items.filter(
-        (item: BaseItemDto) =>
-          item.AlbumArtists?.some((a: NameIdPair) => a.Id === artistId) ||
-          item.ArtistItems?.some((a: NameIdPair) => a.Id === artistId)
-      );
-      return { ...result, Items: filtered, TotalRecordCount: filtered.length };
+      artistIds: artistId,
     });
   }
 
-  async getArtistSongs(artistId: string, artistName: string): Promise<BaseItemDtoQueryResult> {
+  async getArtistSongs(artistId: string): Promise<BaseItemDtoQueryResult> {
     return this.getItems({
       includeItemTypes: 'Audio',
       sortBy: 'ProductionYear,Album,SortName',
@@ -277,13 +271,7 @@ class JellyfinApi {
       fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams,SongCount',
       limit: 500,
       recursive: true,
-    }).then((result): BaseItemDtoQueryResult => {
-      const filtered = result.Items.filter(
-        (item: BaseItemDto) =>
-          item.Artists?.includes(artistName) ||
-          item.ArtistItems?.some((a: NameIdPair) => a.Id === artistId)
-      );
-      return { ...result, Items: filtered, TotalRecordCount: filtered.length };
+      artistIds: artistId,
     });
   }
 
