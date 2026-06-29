@@ -5,6 +5,7 @@ import { jellyfinApi } from '@/api/jellyfin';
 import { usePlayerStore } from '@/store/playerStore';
 import SafeImage from '@/components/SafeImage';
 import BackButton from '@/components/BackButton';
+import AlbumOverlay from './album-overlay';
 import Svg, { Path } from 'react-native-svg';
 import type { BaseItemDto } from '@/types/jellyfin';
 import { formatDuration } from '@/utils/format';
@@ -113,7 +114,8 @@ function ArtistOverlay({ artistId, onBack }: { artistId: string; onBack: () => v
   const [songs, setSongs] = useState<BaseItemDto[]>([]);
   const [activeTab, setActiveTab] = useState<'albums' | 'songs'>('albums');
   const [loading, setLoading] = useState(true);
-  const { setQueue, openAlbumDetail } = usePlayerStore();
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const { setQueue } = usePlayerStore();
 
   useEffect(() => {
     async function load() {
@@ -172,7 +174,9 @@ function ArtistOverlay({ artistId, onBack }: { artistId: string; onBack: () => v
           ListEmptyComponent={<Text style={styles.empty}>{activeTab === 'albums' ? '没有找到专辑' : '没有找到歌曲'}</Text>}
           renderItem={({ item, index }) =>
             activeTab === 'albums' ? (
-              <Pressable style={{ width: '48%' }} onPress={() => { router.navigate('/(tabs)/albums'); openAlbumDetail(item.Id); }}>
+              <Pressable style={{ width: '48%' }}                                         onPress={() => {
+                                            setSelectedAlbumId(item.Id);
+                                        }}>
                 <SafeImage src={jellyfinApi.getImageUrl(item.Id, 'Primary', 140, 140, 90, item.ImageTags?.Primary)} type="album" size={140} />
                 <Text style={styles.albumCardName} numberOfLines={1}>{item.Name}</Text>
                 <Text style={styles.albumCardYear}>{item.ProductionYear || ''}</Text>
@@ -190,6 +194,7 @@ function ArtistOverlay({ artistId, onBack }: { artistId: string; onBack: () => v
           }
         />
       ) : <Text style={styles.empty}>歌手未找到</Text>}
+      {selectedAlbumId && <AlbumOverlay albumId={selectedAlbumId} onClose={() => setSelectedAlbumId(null)} />}
     </View>
   );
 }
