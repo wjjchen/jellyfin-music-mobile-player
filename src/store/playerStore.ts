@@ -103,12 +103,17 @@ function startProgressPolling() {
     const store = usePlayerStore.getState();
     if (!store.isPlaying) return;
     const t = audioPlayer?.currentTime;
+    const d = audioPlayer?.duration;
     if (t != null) {
       store.setCurrentTime(t);
       const idx = updateLyricIndex(t, store.lyrics);
       if (idx !== store.currentLyricIndex) store.setCurrentLyricIndex(idx);
     }
-    if (audioPlayer?.duration) store.setDuration(audioPlayer.duration);
+    if (d) store.setDuration(d);
+    if (t != null && d && t >= d - 0.5 && store.currentIndex >= 0) {
+      clearProgressTimer();
+      store.next();
+    }
   }, 250);
 }
 
@@ -164,6 +169,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           const s = usePlayerStore.getState(); s.setCurrentTime(a.currentTime); s.setDuration(a.duration || 0);
           const idx = updateLyricIndex(a.currentTime, s.lyrics);
           if (idx !== s.currentLyricIndex) s.setCurrentLyricIndex(idx);
+          if (a.currentTime >= (a.duration || 0) - 0.5 && s.currentIndex >= 0) {
+            s.next();
+          }
         });
       } else {
         const artwork = jellyfinApi.getImageUrl(item.Id, 'Primary', 400, 400);
