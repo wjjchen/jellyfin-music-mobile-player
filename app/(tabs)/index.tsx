@@ -33,11 +33,11 @@ export default function HomePage() {
         jellyfinApi.getItems({ includeItemTypes: 'Audio', sortBy: 'Random', limit: 12, recursive: true }),
         jellyfinApi.getPlaylists(),
       ]);
-      setLatestAlbums(latest);
-      setRecentlyPlayed(recent);
-      setMostPlayed(most.Items || []);
-      setDailyPicks(random.Items || []);
-      setPlaylists(pl.Items || []);
+      setLatestAlbums(latest || []);
+      setRecentlyPlayed(recent || []);
+      setMostPlayed(most?.Items || []);
+      setDailyPicks(random?.Items || []);
+      setPlaylists(pl?.Items || []);
     } catch (e) {
       console.error('Refresh failed:', e);
     } finally {
@@ -55,11 +55,11 @@ export default function HomePage() {
           jellyfinApi.getItems({ includeItemTypes: 'Audio', sortBy: 'Random', limit: 12, recursive: true }),
           jellyfinApi.getPlaylists(),
         ]);
-        setLatestAlbums(latest);
-        setRecentlyPlayed(recent);
-        setMostPlayed(most.Items || []);
-        setDailyPicks(random.Items || []);
-        setPlaylists(pl.Items || []);
+        setLatestAlbums(latest || []);
+        setRecentlyPlayed(recent || []);
+        setMostPlayed(most?.Items || []);
+        setDailyPicks(random?.Items || []);
+        setPlaylists(pl?.Items || []);
       } catch (e) {
         console.error('Failed to load home:', e);
       } finally {

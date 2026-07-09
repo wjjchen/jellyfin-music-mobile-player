@@ -233,12 +233,34 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
   togglePlaylist: () => set((s) => ({ showPlaylist: !s.showPlaylist })),
   toggleFullPlayer: () => set((s) => ({ showFullPlayer: !s.showFullPlayer })),
-  removeFromQueue: (index) => set((s) => {
+  removeFromQueue: (index) => {
+    const s = get();
     const q = [...s.queue]; q.splice(index, 1);
     let i = s.currentIndex;
-    if (index < i) i--; else if (index === i) { if (q.length === 0) i = -1; else if (i >= q.length) i = q.length - 1; }
-    return { queue: q, currentIndex: i };
-  }),
+    if (index < i) {
+      i--;
+      set({ queue: q, currentIndex: i });
+    } else if (index === i) {
+      if (q.length === 0) {
+        clearProgressTimer();
+        if (Platform.OS !== 'web') pauseNative();
+        else stopWeb();
+        stopForegroundService();
+        updatePlaybackState(false);
+        set({ queue: [], currentIndex: -1, isPlaying: false });
+      } else if (i >= q.length) {
+        i = q.length - 1;
+        set({ queue: q, currentIndex: i, isPlaying: false });
+        stopForegroundService();
+        updatePlaybackState(false);
+      } else {
+        set({ queue: q });
+        get().playItem(q[i], q);
+      }
+    } else {
+      set({ queue: q });
+    }
+  },
   setCurrentTime: (t) => set({ currentTime: t }), setDuration: (d) => set({ duration: d }),
   setLyrics: (l) => set({ lyrics: l }), setCurrentLyricIndex: (i) => set({ currentLyricIndex: i }),
   shuffleQueue: () => set((s) => ({ queue: [...s.queue].sort(() => Math.random() - 0.5) })),
