@@ -134,7 +134,9 @@ export default function HomePage() {
           <View>
             {/* 我的歌单 */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>我的歌单</Text>
+            <Pressable onPress={() => router.push('/(tabs)/playlists')}>
+              <Text style={styles.sectionTitle}>我的歌单</Text>
+            </Pressable>
             <FlatList
               horizontal
               data={playlists}

@@ -41,8 +41,20 @@ function TabIcon({ name, color }: { name: string; color: any }) {
     case 'genres':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5}>
-          <Path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-          <Line x1="7" y1="7" x2="7.01" y2="7" />
+          <Path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <Path d="M2 17l10 5 10-5" />
+          <Path d="M2 12l10 5 10-5" />
+        </Svg>
+      );
+    case 'playlists':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5}>
+          <Path d="M8 6h13" />
+          <Path d="M8 12h13" />
+          <Path d="M8 18h13" />
+          <Circle cx="3" cy="6" r="1" />
+          <Circle cx="3" cy="12" r="1" />
+          <Circle cx="3" cy="18" r="1" />
         </Svg>
       );
     default:
@@ -78,7 +90,8 @@ export default function TabLayout() {
         <Tabs.Screen name="artists" options={{ title: '歌手', tabBarIcon: ({ color }) => <TabIcon name="artists" color={color} /> }} />
           <Tabs.Screen name="genres" options={{ title: '流派', tabBarIcon: ({ color }) => <TabIcon name="genres" color={color} /> }} />
           <Tabs.Screen name="favorites" options={{ href: null, title: '我喜欢的' }} />
-          <Tabs.Screen name="playlists" options={{ href: null, title: '我的歌单' }} />
+          <Tabs.Screen name="album-overlay" options={{ href: null, title: '专辑详情' }} />
+          <Tabs.Screen name="playlists" options={{ title: '我的歌单', tabBarIcon: ({ color }) => <TabIcon name="playlists" color={color} /> }} />
       </Tabs>
     </View>
   );
