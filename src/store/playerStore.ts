@@ -112,7 +112,12 @@ function startProgressPolling() {
     if (d) store.setDuration(d);
     if (t != null && d && t >= d - 0.5 && store.currentIndex >= 0) {
       clearProgressTimer();
-      store.next();
+      if (store.repeatMode === 'one') {
+        seekNative(0);
+        usePlayerStore.setState({ currentTime: 0 });
+      } else {
+        store.next();
+      }
     }
   }, 250);
 }
@@ -170,7 +175,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           const idx = updateLyricIndex(a.currentTime, s.lyrics);
           if (idx !== s.currentLyricIndex) s.setCurrentLyricIndex(idx);
           if (a.currentTime >= (a.duration || 0) - 0.5 && s.currentIndex >= 0) {
-            s.next();
+            if (s.repeatMode === 'one') {
+              seekWeb(0);
+              s.setCurrentTime(0);
+            } else {
+              s.next();
+            }
           }
         });
       } else {
@@ -203,9 +213,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   next: async () => {
-    const { queue, currentIndex } = get();
-    if (currentIndex + 1 >= queue.length) { set({ isPlaying: false }); stopForegroundService(); updatePlaybackState(false); return; }
-    await get().playItem(queue[currentIndex + 1], queue);
+    const { queue, currentIndex, repeatMode } = get();
+    let nextIndex = currentIndex + 1;
+    if (nextIndex >= queue.length) {
+      if (repeatMode === 'all') { nextIndex = 0; }
+      else { set({ isPlaying: false }); stopForegroundService(); updatePlaybackState(false); return; }
+    }
+    await get().playItem(queue[nextIndex], queue);
   },
 
   previous: async () => {
