@@ -248,8 +248,10 @@ export default function FullPlayerPage() {
             }
           }}
         >
-          <View style={[styles.progressFill, { width: `${progress}%` }]}>
-            {progress > 0 && <View style={styles.progressDot} />}
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progress}%` }]}>
+              {progress > 0 && <View style={styles.progressDot} />}
+            </View>
           </View>
         </View>
         <View style={styles.timeRow}>
@@ -411,6 +413,7 @@ const styles = StyleSheet.create({
   lyricsEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   progressBar: { height: 20, justifyContent: 'center', marginHorizontal: 20 },
+  progressTrack: { height: 4, backgroundColor: 'rgba(0,164,220,0.15)', borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: 4, backgroundColor: colors.accent, borderRadius: 2, justifyContent: 'center', alignItems: 'flex-end' },
   progressDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent, position: 'absolute', right: -5 },
   progressSection: { marginTop: 108 },
