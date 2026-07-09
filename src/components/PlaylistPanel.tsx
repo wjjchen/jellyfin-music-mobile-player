@@ -16,7 +16,9 @@ export default function PlaylistPanel() {
   if (!showPlaylist) return null;
 
   return (
-    <View style={[styles.panel, { top: insets.top, bottom: 108 + insets.bottom }]}>
+    <>
+      <Pressable style={styles.overlay} onPress={togglePlaylist} />
+      <View style={[styles.panel, { top: insets.top, bottom: 108 + insets.bottom }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>播放列表 ({queue.length})</Text>
         <View style={styles.headerActions}>
@@ -62,10 +64,15 @@ export default function PlaylistPanel() {
         ListEmptyComponent={<Text style={styles.empty}>播放列表为空</Text>}
       />
     </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
   panel: {
     position: 'absolute', right: 0, width: 300,
     backgroundColor: 'rgba(15,15,26,0.98)', borderLeftWidth: 1,
