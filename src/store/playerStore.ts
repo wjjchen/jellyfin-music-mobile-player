@@ -92,6 +92,7 @@ function updateLyricIndex(timeSec: number, lyrics: LyricLine[]): number {
 
 let progressTimer: ReturnType<typeof setInterval> | null = null;
 let audioPlayer: any = null;
+let autoNexting = false;
 
 function clearProgressTimer() {
   if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
@@ -110,11 +111,13 @@ function startProgressPolling() {
       if (idx !== store.currentLyricIndex) store.setCurrentLyricIndex(idx);
     }
     if (d) store.setDuration(d);
-    if (t != null && d && t >= d - 0.5 && store.currentIndex >= 0) {
+    if (t != null && d && t >= d - 0.5 && store.currentIndex >= 0 && !autoNexting) {
+      autoNexting = true;
       clearProgressTimer();
       if (store.repeatMode === 'one') {
         seekNative(0);
         usePlayerStore.setState({ currentTime: 0 });
+        autoNexting = false;
       } else {
         store.next();
       }
@@ -164,6 +167,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   playItem: async (item, queue) => {
+    autoNexting = false;
     const newQueue = queue || get().queue;
     try {
       const url = jellyfinApi.getAudioStreamUrl(item.Id, item.Container);
@@ -174,10 +178,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           const s = usePlayerStore.getState(); s.setCurrentTime(a.currentTime); s.setDuration(a.duration || 0);
           const idx = updateLyricIndex(a.currentTime, s.lyrics);
           if (idx !== s.currentLyricIndex) s.setCurrentLyricIndex(idx);
-          if (a.currentTime >= (a.duration || 0) - 0.5 && s.currentIndex >= 0) {
+          if (a.currentTime >= (a.duration || 0) - 0.5 && s.currentIndex >= 0 && !autoNexting) {
+            autoNexting = true;
             if (s.repeatMode === 'one') {
               seekWeb(0);
               s.setCurrentTime(0);
+              autoNexting = false;
             } else {
               s.next();
             }
@@ -217,7 +223,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     let nextIndex = currentIndex + 1;
     if (nextIndex >= queue.length) {
       if (repeatMode === 'all') { nextIndex = 0; }
-      else { set({ isPlaying: false }); stopForegroundService(); updatePlaybackState(false); return; }
+      else { autoNexting = false; set({ isPlaying: false }); stopForegroundService(); updatePlaybackState(false); return; }
     }
     await get().playItem(queue[nextIndex], queue);
   },
