@@ -285,6 +285,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (!isFinite(time) || time < 0) return;
     if (Platform.OS === 'web') seekWeb(time); else await seekNative(time);
     set({ currentTime: time });
+    updatePlaybackState(true, time, get().duration);
   },
 
   setVolume: async (v: number) => {

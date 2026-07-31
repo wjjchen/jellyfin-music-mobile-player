@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -48,6 +49,7 @@ class JellyfinPlaybackService : Service() {
 
   override fun onCreate() {
     super.onCreate()
+    instance = this
     createChannel()
     initMediaSession()
 
@@ -89,6 +91,7 @@ class JellyfinPlaybackService : Service() {
     try { unregisterReceiver(eventReceiver) } catch (_: Exception) {}
     mediaSession?.release()
     mediaSession = null
+    instance = null
     stopForeground(true)
   }
 
@@ -118,6 +121,25 @@ class JellyfinPlaybackService : Service() {
       ACTION_NEXT -> { sendEvent(EVENT_NEXT) }
     }
     return START_STICKY
+  }
+
+  fun onUpdatePlaybackState(isPlaying: Boolean, positionMs: Long, durationMs: Long) {
+    isPlayingState = isPlaying
+    currentPosition = positionMs
+    currentDuration = durationMs
+    updateMediaSessionState()
+    if (!isPlayingState) updateNotification()
+  }
+
+  fun onUpdateMetadata(title: String, artist: String, album: String, artwork: String) {
+    currentTitle = title
+    currentArtist = artist
+    currentAlbum = album
+    if (artwork.isNotBlank() && artwork != currentArtworkUrl) {
+      currentArtworkUrl = artwork
+      loadArtwork(currentArtworkUrl)
+    }
+    updateMediaSessionMetadata()
   }
 
   private fun initMediaSession() {
@@ -153,7 +175,7 @@ class JellyfinPlaybackService : Service() {
     val state = if (isPlayingState) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
     mediaSession?.setPlaybackState(
       PlaybackStateCompat.Builder()
-        .setState(state, currentPosition, 1.0f, System.currentTimeMillis())
+        .setState(state, currentPosition, 1.0f, SystemClock.elapsedRealtime())
         .setActions(
           PlaybackStateCompat.ACTION_PLAY_PAUSE or
             PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
@@ -167,7 +189,7 @@ class JellyfinPlaybackService : Service() {
 
   private fun sendEvent(event: String) {
     try {
-      sendBroadcast(Intent("com.jellyfin.player.EVENT").putExtra("event", event))
+      sendBroadcast(Intent("com.jellyfin.player.EVENT").putExtra("event", event).setPackage(packageName))
     } catch (_: Exception) {}
     try {
       eventCallback?.invoke(event)
@@ -253,6 +275,9 @@ class JellyfinPlaybackService : Service() {
     const val EVENT_TOGGLE = "TOGGLE"
     const val EVENT_PREV = "PREV"
     const val EVENT_NEXT = "NEXT"
+
+    @JvmStatic
+    var instance: JellyfinPlaybackService? = null
 
     @JvmStatic
     var eventCallback: ((String) -> Unit)? = null

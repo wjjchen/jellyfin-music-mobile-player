@@ -12,27 +12,9 @@ import android.content.IntentFilter
 
 class ForegroundServiceModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
-  private var eventReceiver: BroadcastReceiver? = null
-
   override fun getName(): String = "ForegroundServiceModule"
 
   init {
-    try {
-      eventReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-          if (intent?.action == "com.jellyfin.player.EVENT") {
-            val event = intent.getStringExtra("event")
-            if (event != null) {
-              sendEventToJs(event)
-            }
-          }
-        }
-      }
-      (reactApplicationContext.applicationContext as android.app.Application).registerReceiver(
-        eventReceiver, IntentFilter("com.jellyfin.player.EVENT")
-      )
-    } catch (_: Exception) {}
-
     JellyfinPlaybackService.eventCallback = { event ->
       sendEventToJs(event)
     }
@@ -79,25 +61,16 @@ class ForegroundServiceModule(reactContext: ReactApplicationContext) : ReactCont
 
   @ReactMethod
   fun updatePlaybackState(isPlaying: Boolean, position: Double, duration: Double) {
-    val ctx = reactApplicationContext
-    val intent = Intent("com.jellyfin.player.UPDATE_STATE").apply {
-      putExtra("isPlaying", isPlaying)
-      putExtra("position", (position * 1000).toLong())
-      putExtra("duration", (duration * 1000).toLong())
-    }
-    ctx.sendBroadcast(intent)
+    JellyfinPlaybackService.instance?.onUpdatePlaybackState(
+      isPlaying,
+      (position * 1000).toLong(),
+      (duration * 1000).toLong()
+    )
   }
 
   @ReactMethod
   fun updateMetadata(title: String, artist: String, album: String, artwork: String) {
-    val ctx = reactApplicationContext
-    val intent = Intent("com.jellyfin.player.UPDATE_METADATA").apply {
-      putExtra("title", title)
-      putExtra("artist", artist)
-      putExtra("album", album)
-      putExtra("artwork", artwork)
-    }
-    ctx.sendBroadcast(intent)
+    JellyfinPlaybackService.instance?.onUpdateMetadata(title, artist, album, artwork)
   }
 
   @ReactMethod
@@ -116,10 +89,5 @@ class ForegroundServiceModule(reactContext: ReactApplicationContext) : ReactCont
   @ReactMethod
   override fun invalidate() {
     super.invalidate()
-    try {
-      eventReceiver?.let {
-        (reactApplicationContext.applicationContext as android.app.Application).unregisterReceiver(it)
-      }
-    } catch (_: Exception) {}
   }
 }
