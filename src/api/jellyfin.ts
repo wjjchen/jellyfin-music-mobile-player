@@ -148,13 +148,13 @@ class JellyfinApi {
 
   async getLatestAlbums(limit = 20): Promise<BaseItemDto[]> {
     return this.request<BaseItemDto[]>(
-      `/Users/${this.userId}/Items/Latest?Limit=${limit}&IncludeItemTypes=MusicAlbum&Fields=PrimaryImageAspectRatio,SortName`
+      `/Users/${this.userId}/Items/Latest?Limit=${limit}&IncludeItemTypes=MusicAlbum&Fields=PrimaryImageAspectRatio,SortName,ImageTags,AlbumPrimaryImageTag`
     );
   }
 
   async getRecentlyPlayed(limit = 20): Promise<BaseItemDto[]> {
     return this.request<BaseItemDto[]>(
-      `/Users/${this.userId}/Items/Resume?Limit=${limit}&IncludeItemTypes=Audio,MusicAlbum&Fields=PrimaryImageAspectRatio,SortName,MediaSourceCount`
+      `/Users/${this.userId}/Items/Resume?Limit=${limit}&IncludeItemTypes=Audio,MusicAlbum&Fields=PrimaryImageAspectRatio,SortName,MediaSourceCount,ImageTags,AlbumPrimaryImageTag`
     );
   }
 
@@ -193,12 +193,15 @@ class JellyfinApi {
     q.set('EnableImages', 'true');
     q.set('ImageTypeLimit', '1');
     q.set('EnableTotalRecordCount', 'true');
+    if (!params.fields) {
+      q.set('Fields', 'PrimaryImageAspectRatio,SortName,ImageTags,AlbumPrimaryImageTag');
+    }
     return this.request<BaseItemDtoQueryResult>(`/Users/${this.userId}/Items?${q.toString()}`);
   }
 
   async getItem(itemId: string): Promise<BaseItemDto> {
     return this.request<BaseItemDto>(
-      `/Users/${this.userId}/Items/${itemId}?Fields=PrimaryImageAspectRatio,SortName,Genres,Overview,People,MediaSourceCount,RecursiveItemCount`
+      `/Users/${this.userId}/Items/${itemId}?Fields=PrimaryImageAspectRatio,SortName,Genres,Overview,People,MediaSourceCount,RecursiveItemCount,ImageTags,AlbumPrimaryImageTag`
     );
   }
 
@@ -208,7 +211,7 @@ class JellyfinApi {
       parentId: albumId,
       sortBy: 'ParentIndexNumber,IndexNumber,SortName',
       sortOrder: 'Ascending',
-      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams',
+      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams,ImageTags,AlbumPrimaryImageTag',
       limit: 200,
     });
   }
@@ -230,6 +233,7 @@ class JellyfinApi {
     q.set('ImageTypeLimit', '1');
     q.set('EnableTotalRecordCount', 'true');
     q.set('IncludeItemTypes', 'Audio');
+    q.set('Fields', 'PrimaryImageAspectRatio,SortName,ImageTags,AlbumPrimaryImageTag');
     return this.request<BaseItemDtoQueryResult>(`/Artists?${q.toString()}`);
   }
 
@@ -248,6 +252,7 @@ class JellyfinApi {
     q.set('EnableImages', 'true');
     q.set('ImageTypeLimit', '1');
     q.set('EnableTotalRecordCount', 'true');
+    q.set('Fields', 'PrimaryImageAspectRatio,SortName,ImageTags,AlbumPrimaryImageTag');
     return this.request<BaseItemDtoQueryResult>(`/Artists/AlbumArtists?${q.toString()}`);
   }
 
@@ -256,7 +261,7 @@ class JellyfinApi {
       includeItemTypes: 'MusicAlbum',
       sortBy: 'ProductionYear,SortName',
       sortOrder: 'Descending',
-      fields: 'PrimaryImageAspectRatio,SortName,DateCreated,AlbumCount',
+      fields: 'PrimaryImageAspectRatio,SortName,DateCreated,AlbumCount,ImageTags,AlbumPrimaryImageTag',
       limit: 100,
       recursive: true,
       artistIds: artistId,
@@ -268,7 +273,7 @@ class JellyfinApi {
       includeItemTypes: 'Audio',
       sortBy: 'ProductionYear,Album,SortName',
       sortOrder: 'Descending',
-      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams,SongCount',
+      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams,SongCount,ImageTags,AlbumPrimaryImageTag',
       limit: 500,
       recursive: true,
       artistIds: artistId,
@@ -321,7 +326,7 @@ class JellyfinApi {
       parentId = `&ParentId=${this.musicLibraryId}`;
     }
     return this.request<BaseItemDtoQueryResult>(
-      `/Genres?SortBy=SortName&SortOrder=Ascending&Recursive=true&Fields=PrimaryImageAspectRatio,SortName,DateCreated,SongCount&IncludeItemTypes=Audio&StartIndex=0${parentId}&userId=${this.userId}`
+      `/Genres?SortBy=SortName&SortOrder=Ascending&Recursive=true&Fields=PrimaryImageAspectRatio,SortName,DateCreated,SongCount,ImageTags,AlbumPrimaryImageTag&IncludeItemTypes=Audio&StartIndex=0${parentId}&userId=${this.userId}`
     );
   }
 
@@ -332,7 +337,7 @@ class JellyfinApi {
       recursive: true,
       sortBy: 'SortName',
       sortOrder: 'Ascending',
-      fields: 'PrimaryImageAspectRatio,SortName,DateCreated,SongCount',
+      fields: 'PrimaryImageAspectRatio,SortName,DateCreated,SongCount,ImageTags,AlbumPrimaryImageTag',
     });
   }
 
@@ -342,7 +347,7 @@ class JellyfinApi {
       parentId: playlistId,
       sortBy: 'PlaylistIndex',
       sortOrder: 'Ascending',
-      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams',
+      fields: 'PrimaryImageAspectRatio,SortName,MediaSourceCount,MediaStreams,ImageTags,AlbumPrimaryImageTag',
       limit: 1000,
     });
   }

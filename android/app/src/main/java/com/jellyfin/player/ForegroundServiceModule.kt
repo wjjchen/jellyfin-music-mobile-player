@@ -47,12 +47,16 @@ class ForegroundServiceModule(reactContext: ReactApplicationContext) : ReactCont
   }
 
   @ReactMethod
-  fun start(title: String, artist: String) {
+  fun start(title: String, artist: String, album: String, artwork: String, duration: Double) {
     val ctx = reactApplicationContext
     val intent = Intent(ctx, JellyfinPlaybackService::class.java).apply {
       action = JellyfinPlaybackService.ACTION_START
+      putExtra("isPlaying", true)
       putExtra("title", title)
       putExtra("artist", artist)
+      putExtra("album", album)
+      putExtra("artwork", artwork)
+      putExtra("duration", (duration * 1000).toLong())
     }
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -74,10 +78,24 @@ class ForegroundServiceModule(reactContext: ReactApplicationContext) : ReactCont
   }
 
   @ReactMethod
-  fun updatePlaybackState(isPlaying: Boolean) {
+  fun updatePlaybackState(isPlaying: Boolean, position: Double, duration: Double) {
     val ctx = reactApplicationContext
     val intent = Intent("com.jellyfin.player.UPDATE_STATE").apply {
       putExtra("isPlaying", isPlaying)
+      putExtra("position", (position * 1000).toLong())
+      putExtra("duration", (duration * 1000).toLong())
+    }
+    ctx.sendBroadcast(intent)
+  }
+
+  @ReactMethod
+  fun updateMetadata(title: String, artist: String, album: String, artwork: String) {
+    val ctx = reactApplicationContext
+    val intent = Intent("com.jellyfin.player.UPDATE_METADATA").apply {
+      putExtra("title", title)
+      putExtra("artist", artist)
+      putExtra("album", album)
+      putExtra("artwork", artwork)
     }
     ctx.sendBroadcast(intent)
   }

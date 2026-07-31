@@ -9,15 +9,21 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
+import java.io.InputStream
+import java.net.URL
 
 class JellyfinPlaybackService : Service() {
 
@@ -26,8 +32,11 @@ class JellyfinPlaybackService : Service() {
   private var currentArtist: String = ""
   private var currentAlbum: String = ""
   private var currentArtworkUrl: String = ""
+  private var currentPosition: Long = 0
+  private var currentDuration: Long = 0
   private var isPlayingState = false
   private var eventReceiver: BroadcastReceiver? = null
+  private var artworkBitmap: Bitmap? = null
 
   private val binder = LocalBinder()
 
@@ -44,15 +53,34 @@ class JellyfinPlaybackService : Service() {
 
     eventReceiver = object : BroadcastReceiver() {
       override fun onReceive(context: Context?, intent: Intent?) {
-        if (intent?.action == "com.jellyfin.player.UPDATE_STATE") {
-          isPlayingState = intent.getBooleanExtra("isPlaying", false)
-          updateMediaSessionState()
-          updateNotification()
+        when (intent?.action) {
+          "com.jellyfin.player.UPDATE_STATE" -> {
+            isPlayingState = intent.getBooleanExtra("isPlaying", false)
+            currentPosition = intent.getLongExtra("position", 0)
+            currentDuration = intent.getLongExtra("duration", 0)
+            updateMediaSessionState()
+            if (!isPlayingState) updateNotification()
+          }
+          "com.jellyfin.player.UPDATE_METADATA" -> {
+            currentTitle = intent.getStringExtra("title") ?: currentTitle
+            currentArtist = intent.getStringExtra("artist") ?: currentArtist
+            currentAlbum = intent.getStringExtra("album") ?: currentAlbum
+            val newArtworkUrl = intent.getStringExtra("artwork") ?: ""
+            if (newArtworkUrl != currentArtworkUrl) {
+              currentArtworkUrl = newArtworkUrl
+              loadArtwork(currentArtworkUrl)
+            }
+            updateMediaSessionMetadata()
+          }
         }
       }
     }
     try {
-      registerReceiver(eventReceiver, IntentFilter("com.jellyfin.player.UPDATE_STATE"))
+      val filter = IntentFilter().apply {
+        addAction("com.jellyfin.player.UPDATE_STATE")
+        addAction("com.jellyfin.player.UPDATE_METADATA")
+      }
+      registerReceiver(eventReceiver, filter)
     } catch (_: Exception) {}
   }
 
@@ -67,13 +95,16 @@ class JellyfinPlaybackService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_START -> {
+        isPlayingState = intent.getBooleanExtra("isPlaying", false)
         currentTitle = intent.getStringExtra("title") ?: "Jellyfin Player"
         currentArtist = intent.getStringExtra("artist") ?: ""
         currentAlbum = intent.getStringExtra("album") ?: ""
         currentArtworkUrl = intent.getStringExtra("artwork") ?: ""
-        isPlayingState = true
+        currentPosition = 0
+        currentDuration = intent.getLongExtra("duration", 0)
         updateMediaSessionMetadata()
         updateMediaSessionState()
+        loadArtwork(currentArtworkUrl)
         startForeground(NOTIFICATION_ID, buildNotification())
       }
       ACTION_STOP -> {
@@ -82,15 +113,9 @@ class JellyfinPlaybackService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
       }
-      ACTION_TOGGLE -> {
-        sendEvent(EVENT_TOGGLE)
-      }
-      ACTION_PREV -> {
-        sendEvent(EVENT_PREV)
-      }
-      ACTION_NEXT -> {
-        sendEvent(EVENT_NEXT)
-      }
+      ACTION_TOGGLE -> { sendEvent(EVENT_TOGGLE) }
+      ACTION_PREV -> { sendEvent(EVENT_PREV) }
+      ACTION_NEXT -> { sendEvent(EVENT_NEXT) }
     }
     return START_STICKY
   }
@@ -103,34 +128,41 @@ class JellyfinPlaybackService : Service() {
         override fun onPause() { sendEvent(EVENT_TOGGLE) }
         override fun onSkipToNext() { sendEvent(EVENT_NEXT) }
         override fun onSkipToPrevious() { sendEvent(EVENT_PREV) }
-        override fun onSeekTo(pos: Long) { }
+        override fun onSeekTo(pos: Long) { sendEvent("SEEK:$pos") }
       })
       isActive = true
     }
   }
 
   private fun updateMediaSessionMetadata() {
-    mediaSession?.setMetadata(
-      MediaMetadataCompat.Builder()
-        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentTitle)
-        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
-        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, currentAlbum)
-        .build()
-    )
+    val builder = MediaMetadataCompat.Builder()
+      .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentTitle)
+      .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
+      .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, currentAlbum)
+    if (currentDuration > 0) {
+      builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, currentDuration)
+    }
+    artworkBitmap?.let { bitmap ->
+      builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bitmap)
+      builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
+    }
+    mediaSession?.setMetadata(builder.build())
   }
 
   private fun updateMediaSessionState() {
     val state = if (isPlayingState) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
     mediaSession?.setPlaybackState(
       PlaybackStateCompat.Builder()
-        .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
+        .setState(state, currentPosition, 1.0f, System.currentTimeMillis())
         .setActions(
           PlaybackStateCompat.ACTION_PLAY_PAUSE or
-          PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-          PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+            PlaybackStateCompat.ACTION_SEEK_TO
         )
         .build()
     )
+    if (!isPlayingState) updateNotification()
   }
 
   private fun sendEvent(event: String) {
@@ -193,6 +225,21 @@ class JellyfinPlaybackService : Service() {
         )
       }
     }
+  }
+
+  private fun loadArtwork(url: String) {
+    if (url.isBlank()) return
+    Thread {
+      try {
+        val inputStream = URL(url).openStream()
+        val bitmap = BitmapFactory.decodeStream(inputStream)
+        inputStream.close()
+        if (bitmap != null) {
+          artworkBitmap = bitmap
+          Handler(Looper.getMainLooper()).post { updateMediaSessionMetadata() }
+        }
+      } catch (_: Exception) {}
+    }.start()
   }
 
   companion object {

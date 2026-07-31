@@ -10,9 +10,9 @@ function getEmitter() {
   return eventEmitter;
 }
 
-export function startForegroundService(title: string, artist: string) {
+export function startForegroundService(title: string, artist: string, album: string, artwork: string, duration: number) {
   if (Platform.OS !== 'android' || !NativeFG) return;
-  try { NativeFG.start(title, artist); } catch {}
+  try { NativeFG.start(title, artist, album, artwork, duration); } catch {}
 }
 
 export function stopForegroundService() {
@@ -20,9 +20,14 @@ export function stopForegroundService() {
   try { NativeFG.stop(); } catch {}
 }
 
-export function updatePlaybackState(isPlaying: boolean) {
+export function updatePlaybackState(isPlaying: boolean, position: number = 0, duration: number = 0) {
   if (Platform.OS !== 'android' || !NativeFG) return;
-  try { NativeFG.updatePlaybackState(isPlaying); } catch {}
+  try { NativeFG.updatePlaybackState(isPlaying, position, duration); } catch {}
+}
+
+export function updateMetadata(title: string, artist: string, album: string, artwork: string) {
+  if (Platform.OS !== 'android' || !NativeFG) return;
+  try { NativeFG.updateMetadata(title, artist, album, artwork); } catch {}
 }
 
 export function sendLockScreenAction(action: string) {
